@@ -1,0 +1,23 @@
+#replace 80 with your domain name
+:8080 {
+    encode gzip
+
+    log {
+        output file /var/log/caddy.log
+        level debug
+    }
+
+    handle_path /backend* {
+        root * /var/www/backendapp/public
+        php_fastcgi app1:8000
+        try_files {path} /index.php
+        file_server
+    }
+
+    handle_path /main* {
+        root * /var/www/mainapp/public
+        php_fastcgi app2:8000
+        try_files {path} /index.php
+        file_server
+    }
+}

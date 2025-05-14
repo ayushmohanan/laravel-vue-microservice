@@ -1,0 +1,92 @@
+services:
+  app1:
+    container_name: backendapp
+    build:
+      context: ./backendapp
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    volumes:
+      - ./backend:/var/www/html
+    networks:
+      - docker-network
+    ports:
+      - 8000:8000
+    depends_on:
+      - db-backend
+
+  app2:
+    container_name: mainapp
+    build:
+      context: ./mainapp
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    volumes:
+      - ./mainapp:/var/www/html
+    networks:
+      - docker-network
+    ports:
+      - 8000:8001
+    depends_on:
+      - db-mainapp
+
+  caddy:
+    image: caddy:latest
+    ports:
+      - 8080:8080
+      - 443:443
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile
+      - ./backend:/var/www/backendapp
+      - ./mainapp:/var/www/mainapp
+    networks:
+      - docker-network
+    depends_on:
+      - app1
+      - app2
+
+  queue-worker-app1:
+    build:
+      context: ./backendapp
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    networks:
+      - docker-network
+    depends_on:
+      - db-micro
+    command: php artisan admin_queue:work
+
+  queue-worker-app2:
+    build:
+      context: ./mainapp
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    networks:
+      - docker-network
+    depends_on:
+      - db-micro
+    command: php artisan main_queue:work
+
+
+
+  db-micro:
+    image: bitnami/mysql:8.4.0
+    platform: linux/amd64
+    ports:
+     - "3306:3306"
+    restart: always
+    volumes:
+      - db-data:/var/lib/mysql
+    environment:
+      - MYSQL_USER=${MYSQL_USERNAME}
+      - MYSQL_PASSWORD=${MYSQL_PASSWORD}
+      - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD}
+      - MYSQL_DATABASE=${MYSQL_DATABASE}
+    networks:
+      - docker-network
+
+volumes:
+  db-data:
+
+networks:
+  docker-network:
+    driver: bridge
